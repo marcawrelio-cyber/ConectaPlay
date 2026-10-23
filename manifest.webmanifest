@@ -1,0 +1,1 @@
+{"name": "ConectaPlay", "short_name": "ConectaPlay", "start_url": "./index.html", "display": "standalone", "background_color": "#071324", "theme_color": "#07172b", "icons": [{"src": "logo.png", "sizes": "any", "type": "image/png", "purpose": "any"}]}

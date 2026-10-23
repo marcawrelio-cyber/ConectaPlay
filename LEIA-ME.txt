@@ -1,0 +1,9 @@
+ConectaPlay - pacote completo para GitHub Pages
+
+Envie estes 6 arquivos diretamente para a RAIZ do repositorio ConectaPlay (sem pasta interna).
+index.html, app.js, style.css, logo.png, manifest.webmanifest, LEIA-ME.txt
+
+Este pacote e do CONECTAPLAY, nao da Roleta Premiada.
+Apos publicar, abra https://marcawrelio-cyber.github.io/ConectaPlay/?v=20261023final
+O cadastro publico continua desativado; painel Master depende do SQL Etapa 3 executado no Supabase.
+Nao envie senha ou chaves secretas ao GitHub.
