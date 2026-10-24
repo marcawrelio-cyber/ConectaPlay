@@ -75,6 +75,7 @@ async function renderAdmin(){
  const rows=await cpRequest("/rest/v1/rpc/cp3_listar_clientes",{method:"POST",body:"{}"});
  cp6Clientes=rows.filter(c=>c.status==="ativo");
  await cp6CarregarAdmin();
+ await cp7CarregarAlertas();
  $("cpLista").innerHTML=rows.length?rows.map(c=>`<div class="entry"><b>${esc(c.nome)}</b> · ${esc(c.whatsapp)}<br><small>Código: ${esc(c.codigo_indicacao)} · Status: ${esc(c.status)} · Indicado por: ${esc(c.indicado_por_codigo||"—")}</small><br><button onclick="copiar('${esc(c.codigo_indicacao)}')">Copiar código</button> <button onclick="compartilhar('${esc(c.codigo_indicacao)}')">Compartilhar</button> <button onclick="cpMudarStatus('${esc(c.id)}','ativo')" ${c.status==="ativo"?"disabled":""}>Aprovar / Ativar</button> <button onclick="cpMudarStatus('${esc(c.id)}','inativo')" ${c.status==="inativo"?"disabled":""}>Bloquear</button></div>`).join(""):"Nenhum cliente cadastrado na nuvem.";
  }catch(e){$("cpLista").textContent="Falha ao carregar: "+e.message}
 }
@@ -145,3 +146,18 @@ async function cp6CriarPix(){
  }catch(e){$('cp6Msg').textContent='Não foi possível gerar: '+e.message}
  finally{btn.disabled=false}
 }
+
+// Etapa 7: avisos no Painel Master. Push Android exige configuracao adicional.
+let cp7UltimoAlerta = null;
+async function cp7CarregarAlertas(){
+ const el=$('cp7Alertas'); if(!el || !cpToken || cpExpiry<=Date.now())return;
+ try {
+  const rows=await cpRequest('/rest/v1/rpc/cp7_listar_alertas',{method:'POST',body:'{}'});
+  el.innerHTML=rows.length?rows.map(a=>`<div class="entry"><b>${esc(a.titulo)}</b><br>${esc(a.mensagem)}<br><small>${esc(new Date(a.criado_em).toLocaleString('pt-BR'))}</small></div>`).join(''):'Nenhum pagamento confirmado ainda.';
+  if(rows.length && cp7UltimoAlerta && rows[0].id!==cp7UltimoAlerta && document.visibilityState==='visible') {
+    try {let ctx=new (window.AudioContext||window.webkitAudioContext)();let o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.value=.09;o.start();o.stop(ctx.currentTime+.35);o.onended=()=>ctx.close()}catch{}
+  }
+  if(rows.length)cp7UltimoAlerta=rows[0].id;
+ }catch(e){el.textContent='Não foi possível carregar avisos: '+e.message}
+}
+setInterval(()=>{if(document.visibilityState==='visible'&&cpToken&&cpExpiry>Date.now()&&!$('cpPainel')?.hidden)cp7CarregarAlertas()},30000);
