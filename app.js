@@ -117,7 +117,7 @@ let cp6Clientes=[];
 async function cp6CarregarPlanos(){
  const el=$("cp6PlanosPublicos");if(!el)return;
  try{const rows=await cpRequest("/rest/v1/rpc/cp6_listar_planos",{method:"POST",body:"{}"});
- el.innerHTML=rows.length?rows.map(p=>`<article><h3>${esc(p.nome)}</h3><p>R$ ${Number(p.valor).toFixed(2).replace('.',',')} • ${p.dias} dias</p><p>Para assinar, solicite a cobrança ao atendimento.</p></article>`).join(''):'Nenhum plano disponível.';
+ el.innerHTML=rows.length?rows.map(p=>`<article><h3>${esc(p.nome)}</h3><p>R$ ${Number(p.valor).toFixed(2).replace('.',',')} • ${p.quantidade_duracao||p.dias} ${p.unidade_duracao||'dias'}</p><p>Para assinar, solicite a cobrança ao atendimento.</p></article>`).join(''):'Nenhum plano disponível.';
  }catch(e){el.textContent='Não foi possível carregar planos: '+e.message}
 }
 async function cp6CarregarAdmin(){
@@ -133,7 +133,9 @@ async function cp6CarregarAdmin(){
 async function cp6SalvarPlano(){
  try{
   $('cp6Msg').textContent='Salvando plano...';
-  await cpRequest('/rest/v1/rpc/cp6_salvar_plano',{method:'POST',body:JSON.stringify({p_nome:$('cp6Nome').value,p_valor:Number($('cp6Valor').value),p_dias:Number($('cp6Dias').value),p_id:null})});
+  const quantidade=Number($('cp8Quantidade').value), unidade=$('cp8Unidade').value;
+  if(!Number.isSafeInteger(quantidade)||quantidade<1||quantidade>3650)throw Error('Informe uma quantidade inteira de 1 a 3650.');
+  await cpRequest('/rest/v1/rpc/cp8_salvar_plano',{method:'POST',body:JSON.stringify({p_nome:$('cp6Nome').value,p_valor:Number($('cp6Valor').value),p_quantidade:quantidade,p_unidade:unidade})});
   $('cp6Msg').textContent='Plano salvo!';await cp6CarregarAdmin();
  }catch(e){$('cp6Msg').textContent='Erro: '+e.message}
 }
