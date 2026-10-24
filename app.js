@@ -94,3 +94,17 @@ async function cpMudarStatus(id,status){
  try{await cpRequest("/rest/v1/rpc/cp4_alterar_status",{method:"POST",body:JSON.stringify({p_id:id,p_status:status})});await renderAdmin()}
  catch(e){alert("Não foi possível alterar o status: "+e.message)}
 }
+
+// Etapa 5: cadastro público na nuvem, com aprovação obrigatória.
+async function cpCadastroPublico(){
+ const btn=$("cpCadastroBtn"), nome=$("nomeCliente").value.trim(), whatsapp=normalWhats($("whatsCliente").value), indicacao=$("indicador").value.trim().toUpperCase();
+ if(nome.length<2||nome.length>120||!/^[0-9]{10,11}$/.test(whatsapp)){ $("cadMsg").textContent="Confira o nome e o WhatsApp com DDD.";return; }
+ if($("cpArmadilha").value)return;
+ btn.disabled=true;$("cadMsg").textContent="Enviando solicitação...";
+ try{
+ const c=await cpRequest("/rest/v1/rpc/cp5_solicitar_cadastro",{method:"POST",body:JSON.stringify({p_nome:nome,p_whatsapp:whatsapp,p_indicacao:indicacao||null})});
+ $("cadMsg").textContent="Solicitação recebida! Aguarde a aprovação. Seu código de indicação: "+c.codigo;
+ $("nomeCliente").value="";$("whatsCliente").value="";
+ }catch(e){$("cadMsg").textContent="Não foi possível solicitar: "+e.message}
+ finally{btn.disabled=false}
+}
