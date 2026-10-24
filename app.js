@@ -73,7 +73,7 @@ async function renderAdmin(){
  const adm=await cpRequest("/rest/v1/rpc/cp3_sou_admin",{method:"POST",body:"{}"});
  if(adm!==true){cpLogout();return}
  const rows=await cpRequest("/rest/v1/rpc/cp3_listar_clientes",{method:"POST",body:"{}"});
- $("cpLista").innerHTML=rows.length?rows.map(c=>`<div class="entry"><b>${esc(c.nome)}</b> · ${esc(c.whatsapp)}<br><small>Código: ${esc(c.codigo_indicacao)} · Status: ${esc(c.status)} · Indicado por: ${esc(c.indicado_por_codigo||"—")}</small><br><button onclick="copiar('${esc(c.codigo_indicacao)}')">Copiar código</button> <button onclick="compartilhar('${esc(c.codigo_indicacao)}')">Compartilhar</button></div>`).join(""):"Nenhum cliente cadastrado na nuvem.";
+ $("cpLista").innerHTML=rows.length?rows.map(c=>`<div class="entry"><b>${esc(c.nome)}</b> · ${esc(c.whatsapp)}<br><small>Código: ${esc(c.codigo_indicacao)} · Status: ${esc(c.status)} · Indicado por: ${esc(c.indicado_por_codigo||"—")}</small><br><button onclick="copiar('${esc(c.codigo_indicacao)}')">Copiar código</button> <button onclick="compartilhar('${esc(c.codigo_indicacao)}')">Compartilhar</button> <button onclick="cpMudarStatus('${esc(c.id)}','ativo')" ${c.status==="ativo"?"disabled":""}>Aprovar / Ativar</button> <button onclick="cpMudarStatus('${esc(c.id)}','inativo')" ${c.status==="inativo"?"disabled":""}>Bloquear</button></div>`).join(""):"Nenhum cliente cadastrado na nuvem.";
  }catch(e){$("cpLista").textContent="Falha ao carregar: "+e.message}
 }
 async function cpCriarCliente(){
@@ -87,3 +87,10 @@ async function cpCriarCliente(){
  }catch(e){$("cpAcaoMsg").textContent="Erro: "+e.message}
 }
 renderAdmin();
+
+async function cpMudarStatus(id,status){
+ if(!["ativo","inativo"].includes(status))return;
+ if(!confirm(status==="ativo"?"Ativar este cliente?":"Bloquear este cliente?"))return;
+ try{await cpRequest("/rest/v1/rpc/cp4_alterar_status",{method:"POST",body:JSON.stringify({p_id:id,p_status:status})});await renderAdmin()}
+ catch(e){alert("Não foi possível alterar o status: "+e.message)}
+}
