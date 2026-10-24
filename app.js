@@ -4,7 +4,7 @@ let dados;try{dados=JSON.parse(localStorage.getItem(KEY))||{contato:"11921078702
 function salvar(){localStorage.setItem(KEY,JSON.stringify(dados))}
 function $(id){return document.getElementById(id)}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function tela(id){document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!==id);if(id==="admin")renderAdmin();if(id==="cadastro")renderMeu();scrollTo(0,0)}
+function tela(id){document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!==id);if(id==="admin")renderAdmin();if(id==="cadastro")renderMeu();if(id==="planos")cp6CarregarPlanos();scrollTo(0,0)}
 const apps=[
 {nome:"Bob Player",grupo:"smart",icone:"📺",obs:"Confirme a disponibilidade na loja de aplicativos do seu aparelho."},
 {nome:"IBO Player",grupo:"smart",icone:"📺",obs:"Consulte a loja oficial da Smart TV."},
@@ -73,6 +73,8 @@ async function renderAdmin(){
  const adm=await cpRequest("/rest/v1/rpc/cp3_sou_admin",{method:"POST",body:"{}"});
  if(adm!==true){cpLogout();return}
  const rows=await cpRequest("/rest/v1/rpc/cp3_listar_clientes",{method:"POST",body:"{}"});
+ cp6Clientes=rows.filter(c=>c.status==="ativo");
+ await cp6CarregarAdmin();
  $("cpLista").innerHTML=rows.length?rows.map(c=>`<div class="entry"><b>${esc(c.nome)}</b> · ${esc(c.whatsapp)}<br><small>Código: ${esc(c.codigo_indicacao)} · Status: ${esc(c.status)} · Indicado por: ${esc(c.indicado_por_codigo||"—")}</small><br><button onclick="copiar('${esc(c.codigo_indicacao)}')">Copiar código</button> <button onclick="compartilhar('${esc(c.codigo_indicacao)}')">Compartilhar</button> <button onclick="cpMudarStatus('${esc(c.id)}','ativo')" ${c.status==="ativo"?"disabled":""}>Aprovar / Ativar</button> <button onclick="cpMudarStatus('${esc(c.id)}','inativo')" ${c.status==="inativo"?"disabled":""}>Bloquear</button></div>`).join(""):"Nenhum cliente cadastrado na nuvem.";
  }catch(e){$("cpLista").textContent="Falha ao carregar: "+e.message}
 }
@@ -106,5 +108,40 @@ async function cpCadastroPublico(){
  $("cadMsg").textContent="Solicitação recebida! Aguarde a aprovação. Seu código de indicação: "+c.codigo;
  $("nomeCliente").value="";$("whatsCliente").value="";
  }catch(e){$("cadMsg").textContent="Não foi possível solicitar: "+e.message}
+ finally{btn.disabled=false}
+}
+
+// Etapa 6 - Catálogo e emissão de cobrança Pix pelo Master.
+let cp6Clientes=[];
+async function cp6CarregarPlanos(){
+ const el=$("cp6PlanosPublicos");if(!el)return;
+ try{const rows=await cpRequest("/rest/v1/rpc/cp6_listar_planos",{method:"POST",body:"{}"});
+ el.innerHTML=rows.length?rows.map(p=>`<article><h3>${esc(p.nome)}</h3><p>R$ ${Number(p.valor).toFixed(2).replace('.',',')} • ${p.dias} dias</p><p>Para assinar, solicite a cobrança ao atendimento.</p></article>`).join(''):'Nenhum plano disponível.';
+ }catch(e){el.textContent='Não foi possível carregar planos: '+e.message}
+}
+async function cp6CarregarAdmin(){
+ try{
+  const planos=await cpRequest('/rest/v1/rpc/cp6_admin_planos',{method:'POST',body:'{}'});
+  $('cp6Cliente').innerHTML=cp6Clientes.map(c=>`<option value="${esc(c.id)}">${esc(c.nome)} — ${esc(c.whatsapp)}</option>`).join('');
+  $('cp6Plano').innerHTML=planos.filter(p=>p.ativo).map(p=>`<option value="${esc(p.id)}">${esc(p.nome)} — R$ ${Number(p.valor).toFixed(2)}</option>`).join('');
+  $('cp6Gerar').disabled=!cp6Clientes.length||!planos.some(p=>p.ativo);
+  const cob=await cpRequest('/rest/v1/rpc/cp6_listar_cobrancas',{method:'POST',body:'{}'});
+  $('cp6Cobrancas').innerHTML=cob.length?cob.map(c=>`<div class="entry"><b>${esc(c.cliente)}</b> — ${esc(c.plano)}<br>R$ ${Number(c.valor).toFixed(2)} • ${esc(c.status)}<br><small>${esc(c.asaas_payment_id||'Sem ID Asaas')}</small></div>`).join(''):'Nenhuma cobrança.';
+ }catch(e){$('cp6Msg').textContent='Configuração pendente: '+e.message}
+}
+async function cp6SalvarPlano(){
+ try{
+  $('cp6Msg').textContent='Salvando plano...';
+  await cpRequest('/rest/v1/rpc/cp6_salvar_plano',{method:'POST',body:JSON.stringify({p_nome:$('cp6Nome').value,p_valor:Number($('cp6Valor').value),p_dias:Number($('cp6Dias').value),p_id:null})});
+  $('cp6Msg').textContent='Plano salvo!';await cp6CarregarAdmin();
+ }catch(e){$('cp6Msg').textContent='Erro: '+e.message}
+}
+async function cp6CriarPix(){
+ const btn=$('cp6Gerar');btn.disabled=true;$('cp6Msg').textContent='Criando cobrança no Asaas...';$('cp6Pix').hidden=true;
+ try{
+  const result=await cpRequest('/functions/v1/asaas-criar-pix',{method:'POST',body:JSON.stringify({cliente_id:$('cp6Cliente').value,plano_id:$('cp6Plano').value})});
+  const el=$('cp6Pix');el.hidden=false;el.innerHTML=`<h3>Pix gerado • R$ ${Number(result.valor).toFixed(2)}</h3><p>Vencimento: ${esc(result.vencimento)}</p>${result.imagem?`<img alt="QR Code Pix" style="max-width:240px;width:100%;background:white;padding:10px" src="data:image/png;base64,${result.imagem}">`:''}<label>Pix Copia e Cola<textarea id="cp6CodigoPix" readonly>${esc(result.pix||'QR Code indisponível')}</textarea></label><button onclick="copiar($('cp6CodigoPix').value)">Copiar Pix</button><p><small>Gerar cobrança não confirma pagamento. A ativação depende da verificação no Asaas.</small></p>`;
+  $('cp6Msg').textContent='Cobrança emitida. Aguarde confirmação do Asaas.';await cp6CarregarAdmin();
+ }catch(e){$('cp6Msg').textContent='Não foi possível gerar: '+e.message}
  finally{btn.disabled=false}
 }
